@@ -45,6 +45,21 @@ void print_hdr_arp(uint8_t *buf);
 /* prints all headers, starting from eth */
 void print_hdrs(uint8_t *buf, uint32_t length);
 
+// ****** HEADER CREATION ************
+
+sr_ethernet_hdr_t *create_ethernet_hdr(uint8_t source_host[ETHER_ADDR_LEN],
+                                       uint8_t dest_host[ETHER_ADDR_LEN],
+                                       enum sr_ethertype ether_type);
+
+void populate_ethernet_hdr(sr_ethernet_hdr_t *ethernet_hdr,
+                           uint8_t source_host[ETHER_ADDR_LEN],
+                           uint8_t dest_host[ETHER_ADDR_LEN],
+                           enum sr_ethertype ether_type);
+
+void populate_arp_hdr(sr_arp_hdr_t *arp_hdr, enum sr_arp_opcode opcode,
+                      uint8_t source_mac[ETHER_ADDR_LEN], uint32_t source_ip,
+                      uint8_t dest_mac[ETHER_ADDR_LEN], uint32_t dest_ip);
+
 // ****** LOGGING ************
 
 typedef enum {

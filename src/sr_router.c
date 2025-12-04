@@ -71,57 +71,29 @@ void sr_handle_ack_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
 
   sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
 
-  uint32_t  arp_destination_ip  = arp_hdr->ar_tip;
-  char *    arp_destination_mac = arp_hdr->ar_tha;
-  uint32_t  arp_sender_ip       = arp_hdr->ar_sip;
-  char *    arp_sender_mac      = arp_hdr->ar_sha;
+  uint32_t  arp_dest_ip     = arp_hdr->ar_tip;
+  char *    arp_dest_mac    = arp_hdr->ar_tha;
+  uint32_t  arp_source_ip   = arp_hdr->ar_sip;
+  char *    arp_source_mac  = arp_hdr->ar_sha;
 
   // clang-format on
 
   LOG_INFO("received arp request on interface: %s", interface);
 
   // assert: request has a broadcast mac address
-  assert(
-      memcmp(arp_destination_mac, "\xff\xff\xff\xff\xff\xff", ETHER_ADDR_LEN));
+  assert(memcmp(arp_dest_mac, "\xff\xff\xff\xff\xff\xff", ETHER_ADDR_LEN));
 
   // check if arp is targeted to interface
-  if (arp_destination_ip == iface_ip) {
+  if (arp_dest_ip == iface_ip) {
     LOG_INFO("received arp request was intended for interface: %s", interface);
 
     // immediately reply with arp reply
     char *arp_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
-    sr_ethernet_hdr_t *arp_ethernet_hdr = arp_packet;
-    sr_arp_hdr_t *arp_arp_hdr = arp_packet + sizeof(sr_ethernet_hdr_t);
-
-    // ****** ETHERNET HEADER ************
-
-    // set ethernet destination host to ethernet packet source host
-    memcpy(arp_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost,
-           ETHER_ADDR_LEN);
-
-    // set ethernet destination host to interface mac address
-    memcpy(arp_ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
-
-    // set ethernet packet type to arp
-    arp_ethernet_hdr->ether_type = htons(ethertype_arp);
-
-    // ****** ARP HEADER ************
-
-    // see more here:
-    // https://web.archive.org/web/20220412004537/http://www.networksorcery.com/enp/protocol/arp.htm#Protocol%20type
-    arp_arp_hdr->ar_hln = ETHER_ADDR_LEN;
-    arp_arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
-    arp_arp_hdr->ar_op = htons(arp_op_reply);
-    arp_arp_hdr->ar_pln = sizeof(uint32_t);
-    arp_arp_hdr->ar_pro = htons(0x800);
-
-    // populate sender mac and ip
-    memcpy(arp_arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
-    arp_arp_hdr->ar_sip = iface->ip;
-
-    // populate destination mac and ip
-    memcpy(arp_arp_hdr->ar_tha, arp_sender_mac, ETHER_ADDR_LEN);
-    arp_arp_hdr->ar_tip = arp_sender_ip;
+    
+    populate_ethernet_hdr(arp_packet, iface->addr, ethernet_hdr->ether_shost,
+                          ethertype_arp);
+    populate_arp_hdr(arp_packet + sizeof(sr_ethernet_hdr_t), arp_op_reply,
+                     iface->addr, iface->ip, arp_source_mac, arp_source_ip);
 
     sr_send_packet(sr, (char *)arp_packet,
                    sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), interface);

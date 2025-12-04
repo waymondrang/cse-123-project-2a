@@ -188,6 +188,60 @@ void print_hdrs(uint8_t *buf, uint32_t length) {
   }
 }
 
+// creates a newly malloc'd ethernet header
+sr_ethernet_hdr_t *create_ethernet_hdr(uint8_t source_host[ETHER_ADDR_LEN],
+                                       uint8_t dest_host[ETHER_ADDR_LEN],
+                                       enum sr_ethertype ether_type) {
+  sr_ethernet_hdr_t *ethernet_hdr = malloc(sizeof(sr_ethernet_hdr_t));
+
+  // set ethernet source host mac
+  memcpy(ethernet_hdr->ether_shost, source_host, ETHER_ADDR_LEN);
+
+  // set ethernet destination host mac
+  memcpy(ethernet_hdr->ether_dhost, dest_host, ETHER_ADDR_LEN);
+
+  // set ethernet packet type
+  ethernet_hdr->ether_type = htons(ether_type);
+
+  return ethernet_hdr;
+}
+
+// populates a ethernet header at a specified location
+void populate_ethernet_hdr(sr_ethernet_hdr_t *ethernet_hdr,
+                           uint8_t source_host[ETHER_ADDR_LEN],
+                           uint8_t dest_host[ETHER_ADDR_LEN],
+                           enum sr_ethertype ether_type) {
+  // set ethernet source host mac
+  memcpy(ethernet_hdr->ether_shost, source_host, ETHER_ADDR_LEN);
+
+  // set ethernet destination host mac
+  memcpy(ethernet_hdr->ether_dhost, dest_host, ETHER_ADDR_LEN);
+
+  // set ethernet packet type
+  ethernet_hdr->ether_type = htons(ether_type);
+}
+
+// note: assumes ip over ethernet
+void populate_arp_hdr(sr_arp_hdr_t *arp_hdr, enum sr_arp_opcode opcode,
+                      uint8_t source_mac[ETHER_ADDR_LEN], uint32_t source_ip,
+                      uint8_t dest_mac[ETHER_ADDR_LEN], uint32_t dest_ip) {
+  // see more here:
+  // https://web.archive.org/web/20220412004537/http://www.networksorcery.com/enp/protocol/arp.htm#Protocol%20type
+  arp_hdr->ar_hln = ETHER_ADDR_LEN;
+  arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
+  arp_hdr->ar_op = htons(opcode);
+  arp_hdr->ar_pln = sizeof(uint32_t);
+  arp_hdr->ar_pro = htons(0x800);
+
+  // populate source mac and ip
+  memcpy(arp_hdr->ar_sha, source_mac, ETHER_ADDR_LEN);
+  arp_hdr->ar_sip = source_ip;
+
+  // populate dest mac and ip
+  memcpy(arp_hdr->ar_tha, dest_mac, ETHER_ADDR_LEN);
+  arp_hdr->ar_tip = dest_ip;
+}
+
 // ****** LOGGING ************
 
 #include <stdarg.h>
