@@ -172,6 +172,13 @@ void sr_handle_router_ip_packet(struct sr_instance *sr,
   }
 }
 
+void sr_handle_outbound_ip_packet(struct sr_instance *sr,
+                                  uint8_t *packet /* lent */, unsigned int len,
+                                  char *interface /* lent */,
+                                  struct sr_rt *target_rt) {
+  // todo: add packet to arp queue
+}
+
 void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
                          unsigned int len, char *interface /* lent */) {
   // ****** SANITY CHECK PACKET LENGTH ************
@@ -217,7 +224,7 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
     struct sr_rt *rt_entry = sr_find_rt_entry(sr, ntohl(ip_dest_ip));
 
     if (rt_entry != NULL) {
-
+      sr_handle_outbound_ip_packet(sr, packet, len, interface, rt_entry);
     } else {
       // uh oh...
     }
@@ -260,12 +267,21 @@ void sr_handle_arp_request(struct sr_instance *sr, uint8_t *packet /* lent */,
   populate_arp_hdr(arp_packet + sizeof(sr_ethernet_hdr_t), arp_op_reply,
                    iface_mac, iface_ip, arp_source_mac, arp_source_ip);
 
-  LOG_DEBUG("replied to arp request for interface: %s", interface);
+  // debug
+  struct in_addr source_ip_addr;
+  source_ip_addr.s_addr = arp_source_ip;
+  LOG_INFO("sending arp reply to: %s on interface: %s",
+           inet_ntoa(source_ip_addr), interface);
 
   // ****** SEND ARP REPLY ************
 
   sr_send_packet(sr, (char *)arp_packet,
                  sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), interface);
+}
+
+void sr_handle_arp_reply(struct sr_instance *sr, uint8_t *packet /* lent */,
+                         unsigned int len, char *interface /* lent */) {
+  LOG_WARN("arp reply handling not yet implemented!");
 }
 
 void sr_handle_arp_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
@@ -285,11 +301,13 @@ void sr_handle_arp_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
   uint16_t arp_op = ntohs(arp_hdr->ar_op);
 
   if (arp_op == arp_op_request) {
+    LOG_DEBUG("arp packet is type: request");
     sr_handle_arp_request(sr, packet, len, interface);
   } else if (arp_op == arp_op_reply) {
-    LOG_WARN("arp reply handling not yet implemented");
+    LOG_DEBUG("arp packet is type: reply");
+    sr_handle_arp_reply(sr, packet, len, interface);
   } else {
-    LOG_WARN("received arp packet with unknown opcode: %d", arp_op);
+    LOG_WARN("arp packet has unknown opcode: %d", arp_op);
   }
 }
 
