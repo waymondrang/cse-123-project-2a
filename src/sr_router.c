@@ -48,6 +48,90 @@ void sr_init(struct sr_instance *sr) {
 
 } /* -- sr_init -- */
 
+void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
+                         unsigned int len, char *interface /* lent */) {
+  // todo: implement
+}
+
+void sr_handle_ack_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
+                          unsigned int len, char *interface /* lent */) {
+  // clang-format off
+
+  // ****** INTERFACE ************
+
+  struct sr_if *iface = sr_get_interface(sr, interface);
+  uint32_t  iface_ip  = iface->ip;
+  char *    iface_mac = iface->addr;
+
+  // ****** ETHERNET HEADER ************
+
+  sr_ethernet_hdr_t *ethernet_hdr = (sr_ethernet_hdr_t *)packet;
+
+  // ****** ARP HEADER ************
+
+  sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+
+  uint32_t  arp_destination_ip  = arp_hdr->ar_tip;
+  char *    arp_destination_mac = arp_hdr->ar_tha;
+  uint32_t  arp_sender_ip       = arp_hdr->ar_sip;
+  char *    arp_sender_mac      = arp_hdr->ar_sha;
+
+  // clang-format on
+
+  LOG_INFO("received arp request on interface: %s", interface);
+
+  // assert: request has a broadcast mac address
+  assert(
+      memcmp(arp_destination_mac, "\xff\xff\xff\xff\xff\xff", ETHER_ADDR_LEN));
+
+  // check if arp is targeted to interface
+  if (arp_destination_ip == iface_ip) {
+    LOG_INFO("received arp request was intended for interface: %s", interface);
+
+    // immediately reply with arp reply
+    char *arp_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
+    sr_ethernet_hdr_t *arp_ethernet_hdr = arp_packet;
+    sr_arp_hdr_t *arp_arp_hdr = arp_packet + sizeof(sr_ethernet_hdr_t);
+
+    // ****** ETHERNET HEADER ************
+
+    // set ethernet destination host to ethernet packet source host
+    memcpy(arp_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost,
+           ETHER_ADDR_LEN);
+
+    // set ethernet destination host to interface mac address
+    memcpy(arp_ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+
+    // set ethernet packet type to arp
+    arp_ethernet_hdr->ether_type = htons(ethertype_arp);
+
+    // ****** ARP HEADER ************
+
+    // see more here:
+    // https://web.archive.org/web/20220412004537/http://www.networksorcery.com/enp/protocol/arp.htm#Protocol%20type
+    arp_arp_hdr->ar_hln = ETHER_ADDR_LEN;
+    arp_arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
+    arp_arp_hdr->ar_op = htons(arp_op_reply);
+    arp_arp_hdr->ar_pln = sizeof(uint32_t);
+    arp_arp_hdr->ar_pro = htons(0x800);
+
+    // populate sender mac and ip
+    memcpy(arp_arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
+    arp_arp_hdr->ar_sip = iface->ip;
+
+    // populate destination mac and ip
+    memcpy(arp_arp_hdr->ar_tha, arp_sender_mac, ETHER_ADDR_LEN);
+    arp_arp_hdr->ar_tip = arp_sender_ip;
+
+    sr_send_packet(sr, (char *)arp_packet,
+                   sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), interface);
+
+    LOG_INFO("sent arp reply:");
+    print_hdrs((char *)arp_packet,
+               sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
+  }
+}
+
 /*---------------------------------------------------------------------
  * Method: sr_handlepacket(uint8_t* p,char* interface)
  * Scope:  Global
@@ -76,6 +160,16 @@ void sr_handlepacket(struct sr_instance *sr, uint8_t *packet /* lent */,
   // print contents of packet
   print_hdrs(packet, len);
 
-  /* fill in code here */
+  // get type of ethernet packet
+  uint16_t ethtype = ethertype(packet);
+
+  if (ethtype == ethertype_ip) {
+    // todo: implement
+    sr_handle_ip_packet(sr, packet, len, interface);
+  } else if (ethtype == ethertype_arp) {
+    sr_handle_ack_packet(sr, packet, len, interface);
+  } else {
+    LOG_WARN("received unrecognized ethernet packet type: %d", ethtype);
+  }
 
 } /* end sr_ForwardPacket */

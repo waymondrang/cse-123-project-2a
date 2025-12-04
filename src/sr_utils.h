@@ -45,4 +45,24 @@ void print_hdr_arp(uint8_t *buf);
 /* prints all headers, starting from eth */
 void print_hdrs(uint8_t *buf, uint32_t length);
 
+// ****** LOGGING ************
+
+typedef enum {
+  LOG_LEVEL_DEBUG = 0,
+  LOG_LEVEL_INFO = 1,
+  LOG_LEVEL_WARN = 2,
+  LOG_LEVEL_ERROR = 3
+} log_level_t;
+
+#define LOG_DEBUG(fmt, ...)                                                    \
+  log_message(LOG_LEVEL_DEBUG, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)                                                     \
+  log_message(LOG_LEVEL_INFO, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)                                                     \
+  log_message(LOG_LEVEL_WARN, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...)                                                    \
+  log_message(LOG_LEVEL_ERROR, __LINE__, fmt, ##__VA_ARGS__)
+
+void log_message(log_level_t level, int line, const char *fmt, ...);
+
 #endif /* -- SR_UTILS_H -- */

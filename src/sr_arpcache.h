@@ -85,7 +85,7 @@ struct sr_packet {
 struct sr_arpentry {
     unsigned char mac[6]; 
     uint32_t ip;                /* IP addr in network byte order */
-    time_t added;         
+    time_t added;
     int valid;
 };
 

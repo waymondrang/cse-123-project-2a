@@ -11,13 +11,35 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 #include "sr_router.h"
+#include "sr_utils.h"
 
 /*
   This function gets called every second. For each request sent out, we keep
   checking whether we should resend an request or destroy the arp request.
   See the comments in the header file for an idea of what it should look like.
 */
-void sr_arpcache_sweepreqs(struct sr_instance *sr) { /* Fill this in */ }
+void sr_arpcache_sweepreqs(struct sr_instance *sr) {
+  LOG_DEBUG("sweeping arp cache requests");
+
+  struct sr_arpcache *cache = &sr->cache;
+  struct sr_arpreq *req;
+
+  // iterate through arp request queue
+  for (req = cache->requests; req != NULL; req = req->next) {
+    if (req->times_sent >= 5) {
+      // todo: send icmp host unreachable to source addr of all packets waiting
+      sr_arpreq_destroy(cache, req);
+    } else {
+      // create and send arp request
+
+      // create ethernet header
+      sr_ethernet_hdr_t *ethernet_hdr = malloc(sizeof(sr_ethernet_hdr_t));
+      for (int i = 0; i < ETHER_ADDR_LEN; ++i) {
+        ethernet_hdr->ether_dhost[i] = 0xff;
+      }
+    }
+  }
+}
 
 /* You should not need to touch the rest of this code. */
 

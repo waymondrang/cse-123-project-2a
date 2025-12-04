@@ -187,3 +187,63 @@ void print_hdrs(uint8_t *buf, uint32_t length) {
     fprintf(stderr, "Unrecognized Ethernet Type: %d\n", ethtype);
   }
 }
+
+// ****** LOGGING ************
+
+#include <stdarg.h>
+
+// color codes
+#define RESET "\033[0m"
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
+#define BLUE "\033[34m"
+#define MAGENTA "\033[35m"
+#define CYAN "\033[36m"
+#define WHITE "\033[37m"
+#define BOLD "\033[1m"
+#define DIM "\033[2m"
+
+const char *get_level_color(log_level_t level) {
+  switch (level) {
+  case LOG_LEVEL_ERROR:
+    return RED BOLD;
+  case LOG_LEVEL_WARN:
+    return YELLOW;
+  case LOG_LEVEL_INFO:
+    return "";
+  case LOG_LEVEL_DEBUG:
+    return DIM;
+  default:
+    return "";
+  }
+}
+
+const char *get_level_name(log_level_t level) {
+  switch (level) {
+  case LOG_LEVEL_ERROR:
+    return "error";
+  case LOG_LEVEL_WARN:
+    return "warn";
+  case LOG_LEVEL_INFO:
+    return "info";
+  case LOG_LEVEL_DEBUG:
+    return "debug";
+  default:
+    return "log";
+  }
+}
+
+void log_message(log_level_t level, int line, const char *fmt, ...) {
+  // print colored prefix
+  fprintf(stderr, "%s[%s] [line: %d]: ", get_level_color(level),
+          get_level_name(level), line);
+
+  // print message
+  va_list args;
+  va_start(args, fmt);
+  vfprintf(stderr, fmt, args);
+  va_end(args);
+
+  fprintf(stderr, "%s\n", RESET);
+}
