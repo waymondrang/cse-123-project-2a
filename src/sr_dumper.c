@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
 #include "sr_dumper.h"
-#include <stdio.h>
 
 static void sf_write_header(FILE *fp, int linktype, int thiszone, int snaplen) {
   struct pcap_file_header hdr;

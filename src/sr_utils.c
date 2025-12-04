@@ -1,8 +1,9 @@
-#include "sr_utils.h"
-#include "sr_protocol.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "sr_protocol.h"
+#include "sr_utils.h"
 
 uint16_t cksum(const void *_data, int len) {
   const uint8_t *data = _data;

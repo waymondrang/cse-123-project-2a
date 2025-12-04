@@ -1,7 +1,3 @@
-#include "sr_arpcache.h"
-#include "sr_if.h"
-#include "sr_protocol.h"
-#include "sr_router.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sched.h>
@@ -10,6 +6,11 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "sr_arpcache.h"
+#include "sr_if.h"
+#include "sr_protocol.h"
+#include "sr_router.h"
 
 /*
   This function gets called every second. For each request sent out, we keep
