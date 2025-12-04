@@ -19,8 +19,6 @@
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) {
-  LOG_DEBUG("sweeping arp cache requests");
-
   struct sr_arpcache *cache = &sr->cache;
   struct sr_arpreq *req;
 
