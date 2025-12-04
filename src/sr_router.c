@@ -69,32 +69,35 @@ void sr_handle_router_icmp_request(struct sr_instance *sr,
   // ****** INCOMING INTERFACE ************
 
   struct sr_if *iface = sr_get_interface(sr, interface);
-  uint32_t  iface_ip  = iface->ip;
-  uint8_t * iface_mac = iface->addr;
+  uint32_t iface_ip = iface->ip;
+  uint8_t *iface_mac = iface->addr;
 
   // ****** ETHERNET HEADER ************
 
   sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
   uint8_t *eth_source_mac = eth_hdr->ether_shost;
-  uint8_t *eth_dest_mac   = eth_hdr->ether_dhost;
+  uint8_t *eth_dest_mac = eth_hdr->ether_dhost;
 
   // ****** IP HEADER ************
 
   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-  uint32_t  ip_source_ip  = ip_hdr->ip_src;
-  uint32_t  ip_dest_ip    = ip_hdr->ip_dst;
-  uint8_t   ip_protocol   = ip_hdr->ip_p;
+  uint32_t ip_source_ip = ip_hdr->ip_src;
+  uint32_t ip_dest_ip = ip_hdr->ip_dst;
+  uint8_t ip_protocol = ip_hdr->ip_p;
 
   // ****** ICMP HEADER ************
 
-  sr_icmp_t08_hdr_t *icmp_hdr = (sr_icmp_t08_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-  uint8_t   icmp_type = icmp_hdr->icmp_type;
-  uint16_t  icmp_id   = icmp_hdr->icmp_id;
-  uint16_t  icmp_seq  = icmp_hdr->icmp_seq;
+  sr_icmp_t08_hdr_t *icmp_hdr =
+      (sr_icmp_t08_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) +
+                            sizeof(sr_ip_hdr_t));
+  uint8_t icmp_type = icmp_hdr->icmp_type;
+  uint16_t icmp_id = icmp_hdr->icmp_id;
+  uint16_t icmp_seq = icmp_hdr->icmp_seq;
 
   // ****** CREATE REPLY PACKET ************
 
-  unsigned int ip_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t08_hdr_t);
+  unsigned int ip_packet_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
+                               sizeof(sr_icmp_t08_hdr_t);
   char *ip_packet = malloc(ip_packet_len);
 
   populate_ethernet_hdr(ip_packet, iface_mac, eth_source_mac, ethertype_ip);
@@ -124,7 +127,8 @@ void sr_handle_router_icmp_packet(struct sr_instance *sr,
                                   struct sr_if *target_iface) {
   // ****** SANITY CHECK PACKET LENGTH ************
 
-  if (len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t08_hdr_t)) {
+  if (len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
+                sizeof(sr_icmp_t08_hdr_t)) {
     LOG_ERROR("recieved ip packet is too short to contain ethernet, ip, and "
               "icmp headers (length: %d)",
               len);
@@ -133,15 +137,18 @@ void sr_handle_router_icmp_packet(struct sr_instance *sr,
 
   // ****** ICMP HEADER ************
 
-  sr_icmp_t08_hdr_t *icmp_hdr = (sr_icmp_t08_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+  sr_icmp_t08_hdr_t *icmp_hdr =
+      (sr_icmp_t08_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) +
+                            sizeof(sr_ip_hdr_t));
   uint8_t icmp_type = icmp_hdr->icmp_type;
 
   // ****** DELEGATE ICMP TYPE ************
 
   if (icmp_type == icmp_echo_request) {
+    LOG_DEBUG("icmp packet is type: request");
     sr_handle_router_icmp_request(sr, packet, len, interface, target_iface);
   } else {
-    LOG_WARN("received icmp packet with unsupported type: %d", icmp_type);
+    LOG_WARN("icmp packet has unsupported type: %d", icmp_type);
   }
 }
 
@@ -158,9 +165,10 @@ void sr_handle_router_ip_packet(struct sr_instance *sr,
   // ****** DELEGATE PROTOCOL HANDLING ************
 
   if (ip_protocol == ip_protocol_icmp) {
+    LOG_DEBUG("ip packet contains protocol: icmp");
     sr_handle_router_icmp_packet(sr, packet, len, interface, target_iface);
   } else {
-    LOG_WARN("received ip packet with unsupported protocol: %d", ip_protocol);
+    LOG_WARN("ip packet has unsupported protocol: %d", ip_protocol);
   }
 }
 
@@ -179,8 +187,8 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
 
   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
   uint32_t ip_source_ip = ip_hdr->ip_src;
-  uint32_t ip_dest_ip   = ip_hdr->ip_dst;
-  uint16_t ip_checksum  = ip_hdr->ip_sum;
+  uint32_t ip_dest_ip = ip_hdr->ip_dst;
+  uint16_t ip_checksum = ip_hdr->ip_sum;
 
   // ****** SANITY CHECK IP HEADER *********
 
@@ -201,7 +209,7 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
   // ****** DELEGATE PACKET HANDLING ************
 
   if (target_iface != NULL) {
-    LOG_DEBUG("handling ip packet destined for router interface: %s",
+    LOG_DEBUG("ip packet is destined for router interface: %s",
               target_iface->name);
     sr_handle_router_ip_packet(sr, packet, len, interface, target_iface);
   } else {
@@ -216,45 +224,72 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
   }
 }
 
-void sr_handle_ack_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
-                          unsigned int len, char *interface /* lent */) {
-  LOG_DEBUG("received arp request on interface: %s", interface);
-
+void sr_handle_arp_request(struct sr_instance *sr, uint8_t *packet /* lent */,
+                           unsigned int len, char *interface /* lent */) {
   // ****** INCOMING INTERFACE ************
 
   struct sr_if *iface = sr_get_interface(sr, interface);
-  uint32_t  iface_ip  = iface->ip;
-  char *    iface_mac = iface->addr;
+  uint32_t iface_ip = iface->ip;
+  char *iface_mac = iface->addr;
 
   // ****** ETHERNET HEADER ************
 
-  sr_ethernet_hdr_t *ethernet_hdr = (sr_ethernet_hdr_t *)packet;
+  sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
+  char *eth_source_mac = eth_hdr->ether_shost;
 
   // ****** ARP HEADER ************
 
   sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-  uint32_t  arp_dest_ip     = arp_hdr->ar_tip;
-  char *    arp_dest_mac    = arp_hdr->ar_tha;
-  uint32_t  arp_source_ip   = arp_hdr->ar_sip;
-  char *    arp_source_mac  = arp_hdr->ar_sha;
+  uint32_t arp_dest_ip = arp_hdr->ar_tip;
+  char *arp_dest_mac = arp_hdr->ar_tha;
+  uint32_t arp_source_ip = arp_hdr->ar_sip;
+  char *arp_source_mac = arp_hdr->ar_sha;
 
-  // assert: request has a broadcast mac address
-  assert(memcmp(arp_dest_mac, "\xff\xff\xff\xff\xff\xff", ETHER_ADDR_LEN));
+  // ****** SANITY CHECK DESTINATION ************
 
-  // check if arp is targeted to interface
-  if (arp_dest_ip == iface_ip) {
-    // immediately reply with arp reply
-    char *arp_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
+  if (arp_dest_ip != iface_ip) {
+    LOG_WARN("arp request is not destined for receiving interface, ignoring");
+    return;
+  }
 
-    populate_ethernet_hdr(arp_packet, iface->addr, ethernet_hdr->ether_shost,
-                          ethertype_arp);
-    populate_arp_hdr(arp_packet + sizeof(sr_ethernet_hdr_t), arp_op_reply,
-                     iface->addr, iface->ip, arp_source_mac, arp_source_ip);
+  // ****** CREATE ARP REPLY ************
 
-    LOG_DEBUG("replied to arp request for interface: %s", interface);
+  char *arp_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
 
-    sr_send_packet(sr, (char *)arp_packet,
-                   sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), interface);
+  populate_ethernet_hdr(arp_packet, iface_mac, eth_source_mac, ethertype_arp);
+  populate_arp_hdr(arp_packet + sizeof(sr_ethernet_hdr_t), arp_op_reply,
+                   iface_mac, iface_ip, arp_source_mac, arp_source_ip);
+
+  LOG_DEBUG("replied to arp request for interface: %s", interface);
+
+  // ****** SEND ARP REPLY ************
+
+  sr_send_packet(sr, (char *)arp_packet,
+                 sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), interface);
+}
+
+void sr_handle_arp_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
+                          unsigned int len, char *interface /* lent */) {
+  // ****** SANITY CHECK PACKET LENGTH ************
+
+  if (len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t)) {
+    LOG_ERROR("recieved arp packet is too short to contain ethernet and arp "
+              "headers (length: %d)",
+              len);
+    return;
+  }
+
+  // ****** ARP HEADER ************
+
+  sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+  uint16_t arp_op = ntohs(arp_hdr->ar_op);
+
+  if (arp_op == arp_op_request) {
+    sr_handle_arp_request(sr, packet, len, interface);
+  } else if (arp_op == arp_op_reply) {
+    LOG_WARN("arp reply handling not yet implemented");
+  } else {
+    LOG_WARN("received arp packet with unknown opcode: %d", arp_op);
   }
 }
 
@@ -295,7 +330,7 @@ void sr_handlepacket(struct sr_instance *sr, uint8_t *packet /* lent */,
     sr_handle_ip_packet(sr, packet, len, interface);
   } else if (ethtype == ethertype_arp) {
     LOG_INFO("received ethernet packet is type: arp");
-    sr_handle_ack_packet(sr, packet, len, interface);
+    sr_handle_arp_packet(sr, packet, len, interface);
   } else {
     LOG_WARN("received unrecognized ethernet packet type: %d", ethtype);
   }
