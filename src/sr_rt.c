@@ -20,6 +20,7 @@
 
 #include "sr_router.h"
 #include "sr_rt.h"
+#include "sr_utils.h"
 
 /*---------------------------------------------------------------------
  * Method:
@@ -131,11 +132,11 @@ void sr_print_routing_table(struct sr_instance *sr) {
   struct sr_rt *rt_walker = 0;
 
   if (sr->routing_table == 0) {
-    printf(" *warning* Routing table empty \n");
+    LOG_DEBUG(" *warning* Routing table empty");
     return;
   }
 
-  printf("Destination\tGateway\t\tMask\tIface\n");
+  LOG_DEBUG("Destination\t\tGateway\t\t\tMask\t\t\tIface");
 
   rt_walker = sr->routing_table;
 
@@ -157,9 +158,21 @@ void sr_print_routing_entry(struct sr_rt *entry) {
   assert(entry);
   assert(entry->interface);
 
-  printf("%s\t\t", inet_ntoa(entry->dest));
-  printf("%s\t", inet_ntoa(entry->gw));
-  printf("%s\t", inet_ntoa(entry->mask));
-  printf("%s\n", entry->interface);
+  LOG_DEBUG("%s\t\t%s\t\t%s\t\t%s", inet_ntoa(entry->dest), inet_ntoa(entry->gw),
+            inet_ntoa(entry->mask), entry->interface);
 
 } /* -- sr_print_routing_entry -- */
+
+struct sr_rt *sr_find_rt_entry(struct sr_instance *sr, uint32_t ip) {
+  struct sr_rt *curr = sr->routing_table;
+
+  while (curr != NULL) {
+    if (curr->dest.s_addr == ip) {
+      return curr;
+    }
+
+    curr = curr->next;
+  }
+
+  return NULL;
+}

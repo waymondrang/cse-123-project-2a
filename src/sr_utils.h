@@ -60,6 +60,15 @@ void populate_arp_hdr(sr_arp_hdr_t *arp_hdr, enum sr_arp_opcode opcode,
                       uint8_t source_mac[ETHER_ADDR_LEN], uint32_t source_ip,
                       uint8_t dest_mac[ETHER_ADDR_LEN], uint32_t dest_ip);
 
+void populate_ip_hdr(sr_ip_hdr_t *ip_hdr, unsigned long body_len,
+                     uint32_t source_ip, uint32_t dest_ip, uint8_t protocol);
+
+void populate_icmp_t08_hdr(sr_icmp_t08_hdr_t *icmp_hdr, uint8_t type,
+                           uint8_t code, uint16_t id, uint16_t seq);
+
+void populate_icmp_t11_hdr(sr_icmp_t11_hdr_t *icmp_hdr, uint8_t type,
+                           uint8_t code);
+
 // ****** LOGGING ************
 
 typedef enum {

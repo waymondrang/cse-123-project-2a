@@ -242,6 +242,52 @@ void populate_arp_hdr(sr_arp_hdr_t *arp_hdr, enum sr_arp_opcode opcode,
   arp_hdr->ar_tip = dest_ip;
 }
 
+void populate_ip_hdr(sr_ip_hdr_t *ip_hdr, unsigned long body_len,
+                     uint32_t source_ip, uint32_t dest_ip, uint8_t protocol) {
+  ip_hdr->ip_v = 4;
+  ip_hdr->ip_off = 0;
+  ip_hdr->ip_tos = 0;
+  ip_hdr->ip_id = 0;
+  ip_hdr->ip_ttl = 64;
+  ip_hdr->ip_p = protocol;
+
+  ip_hdr->ip_off = 0;
+  ip_hdr->ip_off |= IP_DF;
+  ip_hdr->ip_off = htons(ip_hdr->ip_off);
+
+  ip_hdr->ip_dst = dest_ip;
+  ip_hdr->ip_src = source_ip;
+
+  ip_hdr->ip_hl = sizeof(sr_ip_hdr_t) / sizeof(uint32_t);
+  ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + body_len);
+  ip_hdr->ip_sum = 0;
+
+  // important: calculate the checksum last!
+  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+}
+
+void populate_icmp_t08_hdr(sr_icmp_t08_hdr_t *icmp_hdr, uint8_t type,
+                           uint8_t code, uint16_t id, uint16_t seq) {
+  icmp_hdr->icmp_type = type;
+  icmp_hdr->icmp_code = code;
+  icmp_hdr->icmp_id = id;
+  icmp_hdr->icmp_seq = seq;
+  icmp_hdr->icmp_sum = 0;
+
+  // important: calculate checksum over entire header last
+  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_t08_hdr_t));
+}
+
+void populate_icmp_t11_hdr(sr_icmp_t11_hdr_t *icmp_hdr, uint8_t type,
+                           uint8_t code) {
+  icmp_hdr->icmp_type = type;
+  icmp_hdr->icmp_code = code;
+  icmp_hdr->icmp_sum = 0;
+
+  // important: calculate checksum over entire header last
+  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_t11_hdr_t));
+}
+
 // ****** LOGGING ************
 
 #include <stdarg.h>

@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------------
- * file:  sr_rt.h 
- * date:  Mon Oct 07 03:53:53 PDT 2002  
+ * file:  sr_rt.h
+ * date:  Mon Oct 07 03:53:53 PDT 2002
  * Author: casado@stanford.edu
  *
  * Description:
@@ -23,25 +23,24 @@
 /* ----------------------------------------------------------------------------
  * struct sr_rt
  *
- * Node in the routing table 
+ * Node in the routing table
  *
  * -------------------------------------------------------------------------- */
 
-struct sr_rt
-{
-    struct in_addr dest;
-    struct in_addr gw;
-    struct in_addr mask;
-    char   interface[sr_IFACE_NAMELEN];
-    struct sr_rt* next;
+struct sr_rt {
+  struct in_addr dest;
+  struct in_addr gw;
+  struct in_addr mask;
+  char interface[sr_IFACE_NAMELEN];
+  struct sr_rt *next;
 };
 
+int sr_load_rt(struct sr_instance *, const char *);
+void sr_add_rt_entry(struct sr_instance *, struct in_addr, struct in_addr,
+                     struct in_addr, char *);
+void sr_print_routing_table(struct sr_instance *sr);
+void sr_print_routing_entry(struct sr_rt *entry);
 
-int sr_load_rt(struct sr_instance*,const char*);
-void sr_add_rt_entry(struct sr_instance*, struct in_addr,struct in_addr,
-                  struct in_addr, char*);
-void sr_print_routing_table(struct sr_instance* sr);
-void sr_print_routing_entry(struct sr_rt* entry);
+struct sr_rt *sr_find_rt_entry(struct sr_instance *sr, uint32_t ip);
 
-
-#endif  /* --  sr_RT_H -- */
+#endif /* --  sr_RT_H -- */
