@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sched.h>
@@ -11,7 +12,51 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 #include "sr_router.h"
+#include "sr_rt.h"
 #include "sr_utils.h"
+
+void sr_send_arp_request(struct sr_instance *sr, struct sr_arpreq *req) {
+  // ****** ARP REQUEST ************
+
+  uint32_t arp_ip = req->ip;
+
+  // ****** ROUTING TABLE ************
+
+  struct sr_rt *rt_entry = sr_find_rt_entry(sr, arp_ip);
+  assert(rt_entry);
+  char *rt_interface = rt_entry->interface;
+
+  // ****** TARGET INTERFACE ************
+
+  struct sr_if *iface = sr_find_interface_by_name(sr, rt_interface);
+  assert(iface);
+  uint8_t *iface_name = iface->name;
+  uint8_t *iface_mac = iface->addr;
+  uint32_t iface_ip = iface->ip;
+
+  // ****** CREATE ARP REQUEST ************
+
+  uint32_t len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
+  char *arp_packet = malloc(len);
+
+  // note: according to spec, the target address should be 00-00-00-00-00-00 in
+  // the arp header
+
+  populate_ethernet_hdr(arp_packet, iface_mac, "\xff\xff\xff\xff\xff\xff",
+                        ethertype_arp);
+  populate_arp_hdr(arp_packet + sizeof(sr_ethernet_hdr_t), arp_op_request,
+                   iface_mac, iface_ip, "\x00\x00\x00\x00\x00\x00", arp_ip);
+
+  // debug
+  struct in_addr dest_ip_addr;
+  dest_ip_addr.s_addr = arp_ip;
+  LOG_INFO("sending arp request for: %s on interface: %s",
+           inet_ntoa(dest_ip_addr), iface_name);
+
+  // ****** SEND ARP REQUEST ************
+
+  sr_send_packet(sr, (char *)arp_packet, len, iface_name);
+}
 
 /*
   This function gets called every second. For each request sent out, we keep
@@ -26,15 +71,16 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
   for (req = cache->requests; req != NULL; req = req->next) {
     if (req->times_sent >= 5) {
       // todo: send icmp host unreachable to source addr of all packets waiting
+      LOG_WARN("sending icmp host unreachable packets to source addr not yet "
+               "implemented");
+
       sr_arpreq_destroy(cache, req);
     } else {
-      // create and send arp request
+      // send arp request to interface associated with ip
+      sr_send_arp_request(sr, req);
 
-      // create ethernet header
-      sr_ethernet_hdr_t *ethernet_hdr = malloc(sizeof(sr_ethernet_hdr_t));
-      for (int i = 0; i < ETHER_ADDR_LEN; ++i) {
-        ethernet_hdr->ether_dhost[i] = 0xff;
-      }
+      // increment times sent value
+      req->times_sent++;
     }
   }
 }

@@ -62,6 +62,20 @@ struct sr_if *sr_find_interface_by_ip(struct sr_instance *sr, uint32_t ip) {
   return NULL;
 }
 
+struct sr_if *sr_find_interface_by_name(struct sr_instance *sr, char *name) {
+  struct sr_if *curr = sr->if_list;
+
+  while (curr != NULL) {
+    if (strncmp(curr->name, name, sr_IFACE_NAMELEN) == 0) {
+      return curr;
+    }
+
+    curr = curr->next;
+  }
+
+  return NULL;
+}
+
 void sr_handle_router_icmp_request(struct sr_instance *sr,
                                    uint8_t *packet /* lent */, unsigned int len,
                                    char *interface /* lent */,
@@ -176,7 +190,19 @@ void sr_handle_outbound_ip_packet(struct sr_instance *sr,
                                   uint8_t *packet /* lent */, unsigned int len,
                                   char *interface /* lent */,
                                   struct sr_rt *target_rt) {
-  // todo: add packet to arp queue
+
+  // ****** IP HEADER ************
+
+  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+  uint32_t ip_source_ip = ip_hdr->ip_src;
+  uint32_t ip_dest_ip = ip_hdr->ip_dst;
+  uint16_t ip_checksum = ip_hdr->ip_sum;
+
+  // debug
+  LOG_DEBUG("adding outbound ip packet to arp queue");
+
+  // note: interface is the one which the ip packet was received on
+  sr_arpcache_queuereq(&sr->cache, ip_dest_ip, packet, len, interface);
 }
 
 void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
@@ -208,6 +234,9 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
     return;
   }
 
+  // restore checksum
+  ip_hdr->ip_sum = ip_checksum;
+
   // ****** CHECK IF PACKET IS FOR ROUTER ************
 
   // check if ip packet is destined for router interface
@@ -221,9 +250,15 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
     sr_handle_router_ip_packet(sr, packet, len, interface, target_iface);
   } else {
     // find next hop ip for dest
-    struct sr_rt *rt_entry = sr_find_rt_entry(sr, ntohl(ip_dest_ip));
+    struct sr_rt *rt_entry = sr_find_rt_entry(sr, ip_dest_ip);
 
     if (rt_entry != NULL) {
+      // debug
+      struct in_addr dest_in_addr;
+      dest_in_addr.s_addr = ip_dest_ip;
+      LOG_DEBUG("ip packet is destined for outbound host: %s",
+                inet_ntoa(dest_in_addr));
+
       sr_handle_outbound_ip_packet(sr, packet, len, interface, rt_entry);
     } else {
       // uh oh...
@@ -281,7 +316,63 @@ void sr_handle_arp_request(struct sr_instance *sr, uint8_t *packet /* lent */,
 
 void sr_handle_arp_reply(struct sr_instance *sr, uint8_t *packet /* lent */,
                          unsigned int len, char *interface /* lent */) {
-  LOG_WARN("arp reply handling not yet implemented!");
+  // ****** INCOMING INTERFACE ************
+
+  struct sr_if *iface = sr_get_interface(sr, interface);
+  uint32_t iface_ip = iface->ip;
+  char *iface_mac = iface->addr;
+
+  // ****** ETHERNET HEADER ************
+
+  sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
+  char *eth_source_mac = eth_hdr->ether_shost;
+
+  // ****** ARP HEADER ************
+
+  sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+  uint32_t arp_dest_ip = arp_hdr->ar_tip;
+  char *arp_dest_mac = arp_hdr->ar_tha;
+  uint32_t arp_source_ip = arp_hdr->ar_sip;
+  char *arp_source_mac = arp_hdr->ar_sha;
+
+  // ****** SEND WAITING PACKETS ************
+
+  struct sr_arpreq *arp_req =
+      sr_arpcache_insert(&sr->cache, arp_source_mac, arp_source_ip);
+
+  if (arp_req != NULL) {
+    struct sr_packet *curr = arp_req->packets;
+
+    while (curr != NULL) {
+      // send packet waiting on this arp
+      uint8_t *out_packet = curr->buf;
+      unsigned int out_packet_len = curr->len;
+
+      // modify ethernet header to reflect source mac of iface and target mac
+      // from arp
+      sr_ethernet_hdr_t *out_packet_eth_hdr = out_packet;
+      memcpy(out_packet_eth_hdr->ether_shost, iface_mac, ETHER_ADDR_LEN);
+      memcpy(out_packet_eth_hdr->ether_dhost, arp_source_mac, ETHER_ADDR_LEN);
+      // do not change eth type
+
+      // debug
+      struct in_addr arp_ip_addr;
+      arp_ip_addr.s_addr = arp_source_ip;
+      LOG_DEBUG("sending outbound packet for: %s on interface: %s",
+                inet_ntoa(arp_ip_addr), interface);
+
+      // send the packet
+      sr_send_packet(sr, out_packet, out_packet_len, interface);
+
+      print_hdrs(out_packet, out_packet_len);
+
+      curr = curr->next;
+    }
+
+    sr_arpreq_destroy(&sr->cache, arp_req);
+  } else {
+    LOG_WARN("received arp reply for which no packets were waiting on");
+  }
 }
 
 void sr_handle_arp_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
@@ -334,11 +425,11 @@ void sr_handlepacket(struct sr_instance *sr, uint8_t *packet /* lent */,
   assert(packet);
   assert(interface);
 
-  LOG_INFO("received ethernet packet on interface: %s with length %d",
+  LOG_INFO("****** received ethernet packet on interface: %s with length %d",
            interface, len);
 
   // print contents of packet
-  // print_hdrs(packet, len);
+  print_hdrs(packet, len);
 
   // get type of ethernet packet
   uint16_t ethtype = ethertype(packet);

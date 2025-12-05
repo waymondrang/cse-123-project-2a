@@ -158,8 +158,16 @@ void sr_print_routing_entry(struct sr_rt *entry) {
   assert(entry);
   assert(entry->interface);
 
-  LOG_DEBUG("%s\t\t%s\t\t%s\t\t%s", inet_ntoa(entry->dest), inet_ntoa(entry->gw),
-            inet_ntoa(entry->mask), entry->interface);
+  char dest_str[INET_ADDRSTRLEN];
+  char gw_str[INET_ADDRSTRLEN];
+  char mask_str[INET_ADDRSTRLEN];
+
+  inet_ntop(AF_INET, &(entry->dest), dest_str, INET_ADDRSTRLEN);
+  inet_ntop(AF_INET, &(entry->gw), gw_str, INET_ADDRSTRLEN);
+  inet_ntop(AF_INET, &(entry->mask), mask_str, INET_ADDRSTRLEN);
+
+  LOG_DEBUG("%s\t\t%s\t\t%s\t\t%s", dest_str, gw_str, mask_str,
+            entry->interface);
 
 } /* -- sr_print_routing_entry -- */
 
