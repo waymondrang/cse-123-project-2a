@@ -222,6 +222,7 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
   uint32_t ip_source_ip = ip_hdr->ip_src;
   uint32_t ip_dest_ip = ip_hdr->ip_dst;
   uint16_t ip_checksum = ip_hdr->ip_sum;
+  uint8_t ip_ttl = ip_hdr->ip_ttl;
 
   // ****** SANITY CHECK IP HEADER *********
 
@@ -249,6 +250,21 @@ void sr_handle_ip_packet(struct sr_instance *sr, uint8_t *packet /* lent */,
               target_iface->name);
     sr_handle_router_ip_packet(sr, packet, len, interface, target_iface);
   } else {
+    // ****** DECREMENT TTL ************
+
+    if (ip_ttl <= 1) {
+      LOG_WARN("dropping ip packet with expired ttl value: %d", ip_ttl);
+      return;
+    }
+
+    ip_hdr->ip_ttl--;
+
+    // recalculate checksum
+    ip_hdr->ip_sum = 0;
+    ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+
+    // ****** FIND NEXT HOP ************
+
     // find next hop ip for dest
     struct sr_rt *rt_entry = sr_find_rt_entry(sr, ip_dest_ip);
 
@@ -364,8 +380,6 @@ void sr_handle_arp_reply(struct sr_instance *sr, uint8_t *packet /* lent */,
       // send the packet
       sr_send_packet(sr, out_packet, out_packet_len, interface);
 
-      print_hdrs(out_packet, out_packet_len);
-
       curr = curr->next;
     }
 
@@ -425,11 +439,11 @@ void sr_handlepacket(struct sr_instance *sr, uint8_t *packet /* lent */,
   assert(packet);
   assert(interface);
 
-  LOG_INFO("****** received ethernet packet on interface: %s with length %d",
+  LOG_INFO("%sreceived ethernet packet on interface: %s with length %d", GREEN,
            interface, len);
 
   // print contents of packet
-  print_hdrs(packet, len);
+  // print_hdrs(packet, len);
 
   // get type of ethernet packet
   uint16_t ethtype = ethertype(packet);
